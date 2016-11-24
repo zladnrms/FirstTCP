@@ -14,9 +14,9 @@ import java.util.HashMap;
 import java.util.Iterator;
 
 /*
- * 다중 채팅
+ * 다중 채팅 구현 파일. Linux 위에 올려놓는다. 그리고 javac ChatServer.java를 통해 class 파일로 컴파일하고, java ChatServer로 실행하여 놓는다.
  */
-public class MultiServer {
+public class ChatServer {
 
     ArrayList<ChatRoom> chatroomList; // 채팅방
     HashMap clientMap; // 채팅 목록
@@ -29,12 +29,12 @@ public class MultiServer {
 
     //main메서드
     public static void main(String[] args) {
-        MultiServer ms = new MultiServer(); //서버객체 생성.
+        ChatServer ms = new ChatServer(); //서버객체 생성.
         ms.init();//실행.
     }//main()------
 
     //생성자
-    public MultiServer(){
+    public ChatServer(){
         c = Calendar.getInstance();
         sdf = new SimpleDateFormat("YYYY-MM-dd HH:mm:ss");
 
@@ -117,13 +117,14 @@ public class MultiServer {
                 System.out.println("현재 접속자 수는 "+clientMap.size()+"명 입니다.");
 
                 while(in!=null){ //입력스트림이 null이 아니면 반복.
+
                     sendAllMsg(in.readUTF()); //현재 소켓에서 읽어온메시지를 해쉬맵에 저장된 모든
                     //출력스트림으로 보낸다.
                 }//while()---------
             }catch(SocketException e){
                 clientMap.remove("User");
                 sendAllMsg("User" + "님이 퇴장하셨습니다.");
-                System.out.println("현재 접속자 수는 "+clientMap.size()+"명 입니다.");
+                System.out.println("현재 접속자 수 : "+clientMap.size()+"명");
             }catch(IOException e){
 
             }

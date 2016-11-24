@@ -15,15 +15,20 @@ import android.widget.Toast;
 
 import com.google.firebase.iid.FirebaseInstanceId;
 
+import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
 import java.io.DataInputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.UnsupportedEncodingException;
 import java.net.Socket;
 import java.net.SocketException;
+import java.nio.ByteBuffer;
+import java.nio.charset.StandardCharsets;
 
-public class App_main extends AppCompatActivity {
+public class App_test extends AppCompatActivity {
 
     EditText et_chat;
     Button btn_chat;
@@ -31,7 +36,11 @@ public class App_main extends AppCompatActivity {
     String IP = "115.71.238.61";
     int PORT = 9999;
     Socket socket;
+    OutputStream sos;
+    BufferedOutputStream bos;
     DataOutputStream dos;
+    InputStream sis;
+    BufferedInputStream bis;
     DataInputStream dis;
     // Thread
     SetSocket setSocket;
@@ -43,13 +52,10 @@ public class App_main extends AppCompatActivity {
     SharedPreferences pref;
     SharedPreferences.Editor editor;
 
-    // 패킷 프로그래밍
-    byte[] packet = new byte[1024];
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        setContentView(R.layout.app_main);
+        setContentView(R.layout.app_test);
 
         // 로그인 성공 시 닉네임 저장
         pref = getSharedPreferences("nickname", 0);
@@ -67,8 +73,10 @@ public class App_main extends AppCompatActivity {
             @Override
             public void onClick(View view) {
                 try {
-                    byte[] chat = et_chat.getText().toString().getBytes("UTF-8");
-                    dos.writeUTF("User" + "=>" + chat); //키보드로부터 입력받은 문자열을 서버로 보낸다.
+                    dos.write(createPacket());
+                    dos.flush();
+                    dos.close();
+
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -84,6 +92,43 @@ public class App_main extends AppCompatActivity {
         });
     }
 
+    private byte[] createPacket() {
+
+        byte[] packet = new byte[1024];
+
+        String usernick = nick; // 유저 닉네임
+        String chat = et_chat.getText().toString(); // 대화
+
+        String packetData = usernick + "|" + chat; // "유저닉네임|대화내용" 으로 패킷 설정
+
+        try {
+            byte[] packetDataBytes = packetData.getBytes("UTF-8"); // 패킷을 byte 배열화
+            byte[] packetDataLength = ByteBuffer.allocate(4).putInt(packetDataBytes.length).array(); // 서버에 알려줄 패킷 byte 배열의 길이를 byte[] 배열로 저장
+
+            System.arraycopy(packetDataLength, 0, packet, 0, packetDataLength.length);
+            System.arraycopy(packetDataBytes, 0, packet, packetDataLength.length, packetDataBytes.length);
+
+            for (int i = 0; i < packetDataLength.length; i++) {
+                System.out.print(packetDataLength[i]);
+            }
+            System.out.println(" // 여기까지 데이터 Length");
+            for (int i = 0; i < packetDataBytes.length; i++) {
+                System.out.print(packetDataBytes[i]);
+            }
+            System.out.println(" // 여기까지 데이터 내용");
+
+            System.out.print("전체 패킷 : ");
+            for (int i = 0; i < packet.length; i++) {
+                System.out.print(packet[i]);
+            }
+
+        } catch (UnsupportedEncodingException e) {
+
+        }
+
+        return packet;
+    }
+
     public class SetSocket extends Thread {
         int PORT;
         String IP;
@@ -96,7 +141,12 @@ public class App_main extends AppCompatActivity {
         public void run() {
             try {
                 socket = new Socket(IP, PORT);
+                sos = socket.getOutputStream();
+                bos = new BufferedOutputStream(sos);
                 dos = new DataOutputStream(socket.getOutputStream());
+
+                sis = socket.getInputStream();
+                bis = new BufferedInputStream(sis);
                 dis = new DataInputStream(socket.getInputStream());
             } catch (Exception e) {
                 e.printStackTrace();
@@ -110,7 +160,7 @@ public class App_main extends AppCompatActivity {
 
             Log.d("GetMSG AsyncTask", "doInBackground");
             try {
-                System.out.println(dis.readUTF());
+                System.out.println(sis.read());
             } catch (IOException e) {
 
             }

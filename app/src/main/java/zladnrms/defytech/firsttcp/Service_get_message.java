@@ -21,6 +21,7 @@ public class Service_get_message extends Service {
     private CountDownTimer countDownTimer;
 
     public Service_get_message() {
+
     }
 
     @Override
