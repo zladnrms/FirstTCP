@@ -10,6 +10,7 @@ android {
         versionCode 1
         versionName "1.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
+        multiDexEnabled true
     }
     buildTypes {
         release {
@@ -26,4 +27,13 @@ dependencies {
     })
     compile 'com.android.support:appcompat-v7:25.0.1'
     testCompile 'junit:junit:4.12'
+
+    compile 'com.android.support:recyclerview-v7:25.0.1'
+    compile 'com.mikhaellopez:circularimageview:3.0.2'
+    compile 'com.github.bumptech.glide:glide:3.7.0'
+
+    compile 'com.google.firebase:firebase-messaging:9.6.1' // FCM
+    compile 'com.victor:lib:1.0.4' // Circular ProgressBar
 }
+
+apply plugin: 'com.google.gms.google-services'

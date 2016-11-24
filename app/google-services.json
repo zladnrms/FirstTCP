@@ -1,0 +1,55 @@
+{
+  "project_info": {
+    "project_number": "553405351567",
+    "firebase_url": "https://firsttcp.firebaseio.com",
+    "project_id": "firsttcp",
+    "storage_bucket": "firsttcp.appspot.com"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:553405351567:android:896d21503b9bbe31",
+        "android_client_info": {
+          "package_name": "zladnrms.defytech.firsttcp"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "553405351567-u3a2fj0dqa3i9si3mtsjp69amsqpnp8g.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "zladnrms.defytech.firsttcp",
+            "certificate_hash": "B8B2E024BCF99139A01478D054A3465B8A3BEEFF"
+          }
+        },
+        {
+          "client_id": "553405351567-73f4ir5act00srb6oohp2bedgo90tta4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDmg_t2T8na9ZyRG2bCO5e4psZ4D-cFLtc"
+        }
+      ],
+      "services": {
+        "analytics_service": {
+          "status": 1
+        },
+        "appinvite_service": {
+          "status": 2,
+          "other_platform_oauth_client": [
+            {
+              "client_id": "553405351567-73f4ir5act00srb6oohp2bedgo90tta4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        },
+        "ads_service": {
+          "status": 2
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
