@@ -45,22 +45,21 @@
             </intent-filter>
         </receiver>
 
-        <service android:name=".FirebaseMessagingService">
+        <service android:name=".FCM.FirebaseMessagingService">
             <intent-filter>
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
-        <service android:name=".FirebaseInstanceIDService">
+        <service android:name=".FCM.FirebaseInstanceIDService">
             <intent-filter>
                 <action android:name="com.google.firebase.INSTANCE_ID_EVENT" />
             </intent-filter>
         </service>
 
-        <activity android:name=".App_main" />
         <activity android:name=".App_join" />
         <activity android:name=".App_chatlist" />
         <activity android:name=".App_room_list" />
-        <activity android:name=".App_test" />
+        <activity android:name=".App_chatroom" />
         <activity android:name=".App_room_add"></activity>
     </application>
 

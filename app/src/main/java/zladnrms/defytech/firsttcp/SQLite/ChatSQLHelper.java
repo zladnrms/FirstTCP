@@ -1,18 +1,25 @@
-package zladnrms.defytech.firsttcp;
+package zladnrms.defytech.firsttcp.SQLite;
 
 import android.content.Context;
 import android.database.Cursor;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.ArrayList;
+
 /**
  * Created by kim on 2016-08-30.
  */
 
-public class LoginSQLHelper extends SQLiteOpenHelper {
+public class ChatSQLHelper extends SQLiteOpenHelper {
+
+    JSONObject JSONobj = new JSONObject();
 
     // DBHelper 생성자로 관리할 DB 이름과 버전 정보를 받음
-    public LoginSQLHelper(Context context, String name, SQLiteDatabase.CursorFactory factory, int version) {
+    public ChatSQLHelper(Context context, String name, SQLiteDatabase.CursorFactory factory, int version) {
         super(context, name, factory, version);
     }
 
@@ -20,9 +27,7 @@ public class LoginSQLHelper extends SQLiteOpenHelper {
     @Override
     public void onCreate(SQLiteDatabase db) {
         // 새로운 테이블 생성
-        /* 이름은 MONEYBOOK이고, 자동으로 값이 증가하는 _id 정수형 기본키 컬럼과
-        item 문자열 컬럼, price 정수형 컬럼, create_at 문자열 컬럼으로 구성된 테이블을 생성. */
-        db.execSQL("CREATE TABLE LOGINDATA (_id INTEGER PRIMARY KEY AUTOINCREMENT, id VARCHAR, pw VARCHAR);");
+        db.execSQL("CREATE TABLE CHATDATA (_id INTEGER PRIMARY KEY AUTOINCREMENT, room_id INTEGER, nick VARCHAR, chat VARCHAR, date DATETIME DEFAULT CURRENT_TIMESTAMP);");
     }
 
     // DB 업그레이드를 위해 버전이 변경될 때 호출되는 함수
@@ -31,11 +36,11 @@ public class LoginSQLHelper extends SQLiteOpenHelper {
 
     }
 
-    public void insert(String id, String pw) {
+    public void insert(int room_id, String nick, String chat) {
         // 읽고 쓰기가 가능하게 DB 열기
         SQLiteDatabase db = getWritableDatabase();
         // DB에 입력한 값으로 행 추가
-        db.execSQL("INSERT INTO LOGINDATA VALUES(null, '" + id + "', '" + pw + "');");
+        db.execSQL("INSERT INTO LOGINDATA(room_id, nick, chat) VALUES('" + room_id + "', '" + nick + "', '" + chat + "');");
         db.close();
     }
 
@@ -53,31 +58,31 @@ public class LoginSQLHelper extends SQLiteOpenHelper {
         db.close();
     }
 
-    public String chkIdForAuto() { // 자동 로그인 위하여, 로그인 한 적이 있는지 확인
+    public ArrayList<String> getChatList() { // 업로드 내역 출력
+
         // 읽기가 가능하게 DB 열기
-        String id = null;
         SQLiteDatabase db = getReadableDatabase();
 
-        // DB에 있는 데이터를 쉽게 처리하기 위해 Cursor를 사용하여 테이블에 있는 모든 데이터 출력
-        Cursor cursor = db.rawQuery("SELECT * FROM LOGINDATA", null);
-        while (cursor.moveToNext()) {
-            id = cursor.getString(1); // 아이디 가져옴
-        }
-        return id;
-    }
-
-    public String getPwForAuto() { // 자동 로그인 위하여 패스워드 가져옴
-        // 읽기가 가능하게 DB 열기
-        String pw = null;
-        SQLiteDatabase db = getReadableDatabase();
+        // 채팅 내역에 전달할 jsonArray
+        ArrayList<String> chatlist = new ArrayList<String>();
 
         // DB에 있는 데이터를 쉽게 처리하기 위해 Cursor를 사용하여 테이블에 있는 모든 데이터 출력
-        Cursor cursor = db.rawQuery("SELECT * FROM LOGINDATA", null);
+        Cursor cursor = db.rawQuery("SELECT * FROM CHATLIST", null);
+
         while (cursor.moveToNext()) {
 
-            pw = cursor.getString(2); // md5 암호화된 비밀번호 가져옴
+            try {
+                JSONobj.put("_id", cursor.getInt(0));
+                JSONobj.put("room_id", cursor.getInt(1));
+                JSONobj.put("nick", cursor.getString(2));
+                JSONobj.put("chat", cursor.getString(3));
+                JSONobj.put("date", cursor.getString(4));
 
+                chatlist.add(JSONobj.toString());
+            } catch (JSONException e) {
+            }
         }
-        return pw;
+
+        return chatlist;
     }
 }

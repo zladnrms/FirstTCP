@@ -1,6 +1,7 @@
 package zladnrms.defytech.firsttcp;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
@@ -10,16 +11,14 @@ import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
+import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
-
-import com.mikhaellopez.circularimageview.CircularImageView;
 import com.victor.loading.rotate.RotateLoading;
-
 import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
-
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
@@ -27,18 +26,20 @@ import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.List;
 
 public class App_room_list extends AppCompatActivity {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
 
-    Context context;
     private JSONArray jarray = null;
     RotateLoading rotateLoading;
     SharedPreferences pref;
     SharedPreferences.Editor editor;
 
-    ArrayList<RoomInfo> roomlist = new ArrayList<RoomInfo>(); // 방 목록
+    private RecyclerView rv_roomlist;
+    private ArrayList<RoomInfo> roomlist;
+    private RoomlistAdapter rv_adapter;
 
     String nick; // 사용자 정보
 
@@ -47,20 +48,26 @@ public class App_room_list extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.app_room_list);
 
-        context = this;
-
         pref = getSharedPreferences("nickname", 0);
         editor = pref.edit();
 
         rotateLoading = (RotateLoading) findViewById(R.id.rotateloading);
+        rv_roomlist = (RecyclerView) findViewById(R.id.rv_roomList);
+        roomlist =new ArrayList<>();
+        rv_adapter =new RoomlistAdapter(roomlist);
+        LinearLayoutManager verticalLayoutmanager
+                = new LinearLayoutManager(App_room_list.this, LinearLayoutManager.VERTICAL, false);
+        rv_roomlist.setLayoutManager(verticalLayoutmanager);
+        rv_roomlist.setAdapter(rv_adapter);
 
-        RecyclerView recyclerView = (RecyclerView) findViewById(R.id.rv_roomList);
-        LinearLayoutManager layoutManager = new LinearLayoutManager(this, LinearLayoutManager.VERTICAL, false);
-        recyclerView.setHasFixedSize(true);
-        recyclerView.setLayoutManager(layoutManager);
-        recyclerView.setAdapter(new RecyclerAdapter(getApplicationContext(), roomlist, R.layout.rv_roomlist));
-
-        new GetRoomList().execute();
+        Button btn_addRoom = (Button) findViewById(R.id.btn_addRoom);
+        btn_addRoom.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                Intent intent = new Intent(App_room_list.this, App_room_add.class);
+                startActivity(intent);
+            }
+        });
     }
 
     // 방 목록 가져오기
@@ -108,6 +115,7 @@ public class App_room_list extends AppCompatActivity {
                     String json;
                     while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
                         builder.append(json + "\n");
+                        System.out.println(json);
                     }
 
                     return builder.toString().trim();
@@ -136,7 +144,7 @@ public class App_room_list extends AppCompatActivity {
                 for (int i = 0; i < jarray.length(); i++) {
                     JSONObject c = jarray.getJSONObject(i);
                     String js_error = null, js_name = null, js_rule = null;
-                    int js_people = 0, js_maxpeople = 0;
+                    int js_id = 0, js_people = 0, js_maxpeople = 0;
 
                     if (!c.isNull("error")) { // 우선 에러를 검출함
                         js_error = c.getString("error");
@@ -156,12 +164,21 @@ public class App_room_list extends AppCompatActivity {
                             js_people = Integer.valueOf(c.getString("people"));
                         }
 
+                        if (!c.isNull("_id")) {
+                            js_id = Integer.valueOf(c.getString("_id"));
+                        }
+
+                        if (!c.isNull("rule")) {
+                            js_rule = c.getString("rule");
+                        }
+
                         if (!c.isNull("maxpeople")) {
                             js_maxpeople = Integer.valueOf(c.getString("maxpeople"));
                         }
 
-                        RoomInfo roomInfo = new RoomInfo(js_name, js_rule, js_people, js_maxpeople);
+                        RoomInfo roomInfo = new RoomInfo(js_name, js_rule, js_id, js_people, js_maxpeople);
                         roomlist.add(roomInfo);
+                        rv_adapter.notifyDataSetChanged();
                     }
                 }
 
@@ -171,52 +188,66 @@ public class App_room_list extends AppCompatActivity {
         }
     }
 
-    public class RecyclerAdapter extends RecyclerView.Adapter<RecyclerAdapter.ViewHolder> {
-        Context context;
-        ArrayList<RoomInfo> items;
-        int item_layout;
+    public class RoomlistAdapter extends RecyclerView.Adapter<RoomlistAdapter.ViewHolder> {
 
-        public RecyclerAdapter(Context context, ArrayList<RoomInfo> items, int item_layout) {
-            this.context = context;
-            this.items = items;
-            this.item_layout = item_layout;
+        private List<RoomInfo> verticalList;
+
+        public class ViewHolder extends RecyclerView.ViewHolder {
+            ImageView rv_roomlist_img;
+            TextView tv_roomlist_room;
+            TextView tv_roomlist_rule;
+            TextView tv_roomlist_people;
+
+            public ViewHolder(View view) {
+                super(view);
+
+                rv_roomlist_img = (ImageView) view.findViewById(R.id.iv_roomlist);
+                tv_roomlist_room = (TextView) view.findViewById(R.id.tv_roomlist_name);
+                tv_roomlist_rule = (TextView) view.findViewById(R.id.tv_roomlist_rule);
+                tv_roomlist_people = (TextView) view.findViewById(R.id.tv_roomlist_people);
+            }
+        }
+
+        public RoomlistAdapter(List<RoomInfo> verticalList) {
+            this.verticalList = verticalList;
         }
 
         @Override
         public ViewHolder onCreateViewHolder(ViewGroup parent, int viewType) {
-            View v = LayoutInflater.from(parent.getContext()).inflate(R.layout.rv_roomlist, null);
-            return new ViewHolder(v);
+            View itemView = LayoutInflater.from(parent.getContext())
+                    .inflate(R.layout.rv_roomlist, parent, false);
+
+            return new ViewHolder(itemView);
+        }
+
+        @Override
+        public void onBindViewHolder(final ViewHolder holder, final int position) {
+
+            holder.itemView.setOnClickListener(new View.OnClickListener() {
+                @Override
+                public void onClick(View v) {
+                    Intent intent = new Intent(App_room_list.this, App_chatroom.class);
+                    //intent.putExtra("roomId", roomlist.get(position).getId());
+                    startActivity(intent);
+                }
+            });
+
+            if (holder.tv_roomlist_room != null) {
+                holder.tv_roomlist_room.setText(roomlist.get(position).getSubject());
+            }
+
+            if (holder.tv_roomlist_rule != null) {
+                holder.tv_roomlist_rule.setText(roomlist.get(position).getRule());
+            }
+
+            if (holder.tv_roomlist_people != null) {
+                holder.tv_roomlist_people.setText(roomlist.get(position).getPeople() + " / " + roomlist.get(position).getMaxpeople());
+            }
         }
 
         @Override
         public int getItemCount() {
-            return this.items.size();
-        }
-
-        public class ViewHolder extends RecyclerView.ViewHolder {
-
-            CircularImageView rv_roomlist_img;
-            TextView tv_roomlist_room, tv_roomlist_rule, tv_roomlist_people;
-
-            public ViewHolder(View itemView) {
-                super(itemView);
-
-                rv_roomlist_img = (CircularImageView) itemView.findViewById(R.id.iv_roomlist);
-                tv_roomlist_room = (TextView) itemView.findViewById(R.id.tv_roomlist_name);
-                tv_roomlist_rule = (TextView) itemView.findViewById(R.id.tv_roomlist_rule);
-                tv_roomlist_people = (TextView) itemView.findViewById(R.id.tv_roomlist_people);
-            }
-        }
-
-        @Override
-        public void onBindViewHolder(ViewHolder holder, final int position) {
-
-            if (items.get(position) != null) {
-
-                holder.tv_roomlist_room.setText(roomlist.get(position).getSubject());
-                holder.tv_roomlist_rule.setText(roomlist.get(position).getRule());
-                holder.tv_roomlist_people.setText(roomlist.get(position).getPeople() + " / " + roomlist.get(position).getMaxpeople());
-            }
+            return verticalList.size();
         }
     }
 
@@ -224,12 +255,14 @@ public class App_room_list extends AppCompatActivity {
 
         private String roomSubject;
         private String roomRule;
+        private int roomId;
         private int roomPeople;
         private int roomMaxpeople;
 
-        public RoomInfo(String _subject, String _rule, int _people, int _maxpeople) {
+        public RoomInfo(String _subject, String _rule, int _id, int _people, int _maxpeople) {
             this.roomSubject = _subject;
             this.roomRule = _rule;
+            this.roomId = _id;
             this.roomPeople = _people;
             this.roomMaxpeople = _maxpeople;
         }
@@ -242,6 +275,10 @@ public class App_room_list extends AppCompatActivity {
             return roomRule;
         }
 
+        public int getId() {
+            return roomId;
+        }
+
         public int getPeople() {
             return roomPeople;
         }
@@ -251,14 +288,14 @@ public class App_room_list extends AppCompatActivity {
         }
     }
 
-    private void showCustomToast(String msg, int duration){
+    private void showCustomToast(String msg, int duration) {
         //Retrieve the layout inflator
         LayoutInflater inflater = getLayoutInflater();
         //Assign the custom layout to view
         //Parameter 1 - Custom layout XML
         //Parameter 2 - Custom layout ID present in linearlayout tag of XML
         View layout = inflater.inflate(R.layout.custom_toast, (ViewGroup) findViewById(R.id.llayout_custom_toast));
-        TextView msgView = (TextView)layout.findViewById(R.id.tv_toast);
+        TextView msgView = (TextView) layout.findViewById(R.id.tv_toast);
         msgView.setText(msg);
         //Return the application context
         Toast toast = new Toast(getApplicationContext());
@@ -270,5 +307,14 @@ public class App_room_list extends AppCompatActivity {
         toast.setView(layout);
         //Display toast
         toast.show();
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        roomlist.clear();
+        new GetRoomList().execute();
+        rv_adapter.notifyDataSetChanged();
     }
 }

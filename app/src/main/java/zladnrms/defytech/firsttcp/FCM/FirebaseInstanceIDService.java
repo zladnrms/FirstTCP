@@ -1,4 +1,4 @@
-package zladnrms.defytech.firsttcp;
+package zladnrms.defytech.firsttcp.FCM;
 
 import com.google.firebase.iid.FirebaseInstanceId;
 import com.google.firebase.iid.FirebaseInstanceIdService;

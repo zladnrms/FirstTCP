@@ -2,18 +2,15 @@ package zladnrms.defytech.firsttcp;
 
 import android.content.Intent;
 import android.content.SharedPreferences;
-import android.graphics.Color;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
-import android.view.Gravity;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -30,6 +27,8 @@ import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
+
+import zladnrms.defytech.firsttcp.SQLite.LoginSQLHelper;
 
 public class App_login extends AppCompatActivity {
 
@@ -226,7 +225,7 @@ public class App_login extends AppCompatActivity {
                                         editor.commit();
                                         //닉네임 저장 //
                                         onTokenRefresh();
-                                        Intent intent = new Intent(App_login.this, App_test.class);
+                                        Intent intent = new Intent(App_login.this, App_room_list.class);
                                         startActivity(intent);
                                         finish();
                                     } else { // 받아온 nick이 null이라 일어나는 문제
