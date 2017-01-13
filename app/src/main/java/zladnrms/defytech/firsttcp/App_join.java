@@ -1,10 +1,12 @@
 package zladnrms.defytech.firsttcp;
 
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -18,19 +20,30 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 public class App_join extends AppCompatActivity {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
-    /*
-     * PHP에서 받아온 JSON Array에 대한 처리
-     */
-    private JSONArray jarray = null;
+    private JSONArray jarray = null; // PHP에서 받아온 JSON Array에 대한 처리
+
+    private OkHttpClient client = new OkHttpClient();
+
+    private Handler handler = new Handler();
 
     // 중복체크 / 가입 버튼, 회원정보 입력칸
     Button btn_chk_id, btn_chk_nick, btn_join;
@@ -59,7 +72,11 @@ public class App_join extends AppCompatActivity {
                 if (!et_join_id.getText().toString().equals("")) {
                     checkNum = 0;
                     join_id = et_join_id.getText().toString().toLowerCase();
-                    new checkJoinInfo().execute();
+                    try {
+                        Check(URLlink + "/android2/member/join_check.php");
+                    }catch (IOException e){
+                        Log.d("Exception", "에러 :" + e.getMessage());
+                    }
                 } else {
                     showCustomToast("아이디를 입력해주세요", Toast.LENGTH_SHORT);
                     et_join_id.requestFocus();
@@ -73,7 +90,11 @@ public class App_join extends AppCompatActivity {
                 if (!et_join_nick.getText().toString().equals("")) {
                     checkNum = 1;
                     join_nick = et_join_nick.getText().toString();
-                    new checkJoinInfo().execute();
+                    try {
+                        Check(URLlink + "/android2/member/join_check.php");
+                    }catch (IOException e){
+                        Log.d("Exception", "에러 :" + e.getMessage());
+                    }
                 } else {
                     showCustomToast("별명을 입력해주세요", Toast.LENGTH_SHORT);
                     et_join_nick.requestFocus();
@@ -89,7 +110,11 @@ public class App_join extends AppCompatActivity {
                 if(join_pw.length() >= 8) {
                     if (checkId && checkNick) {
 
-                        new Join().execute();
+                        try {
+                            Join(URLlink + "/android2/member/join.php");
+                        }catch (IOException e){
+                            Log.d("Exception", "에러 :" + e.getMessage());
+                        }
                     } else {
                         showCustomToast("전부 중복체크 해주세요", Toast.LENGTH_SHORT);
                     }
@@ -139,224 +164,213 @@ public class App_join extends AppCompatActivity {
         });
     }
 
-    // 중복체크 처리
-    private class checkJoinInfo extends AsyncTask<Void, Void, String> { // 불러오기
+    // 아이디 닉네임 체크
+    void Check(String url) throws IOException {
 
-        @Override
-        protected String doInBackground(Void... params) {
+        RequestBody body = null;
 
-            try {
-                URL url = new URL(URLlink + "/android2/member/join_check.php"); // 앨범 폴더의 dbname 폴더에 접근
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-
-                    StringBuffer buffer = new StringBuffer();
-                    if (checkNum == 0) {
-                        buffer.append("join_id").append("=").append(join_id);
-                    } else if (checkNum == 1) {
-                        buffer.append("join_nick").append("=").append(join_nick);
-                    }
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
-                        System.out.println("json + " + json);
-                    }
-
-                    return builder.toString().trim();
-
-                }
-
-            } catch (final Exception e) {
-
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
+        switch (checkNum){
+            case 0:
+                body = new FormBody.Builder().add("join_id", join_id).build();
+                break;
+            case 1:
+                body = new FormBody.Builder().add("join_nick", join_id).build();
+                break;
         }
 
-        @Override
-        protected void onPostExecute(String result) {
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_result = null;
+                    }
 
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                break;
-                            case "02":
-                                showCustomToast("가입에 실패하였습니다. 잠시 후 다시 시도해보세요.", Toast.LENGTH_SHORT);
-                                break;
-                        }
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("result")) {
-                            js_result = c.getString("result");
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_result = null;
 
-                            switch (js_result) {
-                                case "chk_success":
-                                    if (checkNum == 0) {
-                                        showCustomToast("사용가능한 아이디 입니다.", Toast.LENGTH_SHORT);
-                                        checkId = true;
-                                        et_join_id.setClickable(false);
-                                        et_join_id.setEnabled(false);
-                                        et_join_id.setFocusable(false);
-                                        et_join_id.setFocusableInTouchMode(false);
-                                        btn_chk_id.setClickable(false);
-                                    } else if (checkNum == 1) {
-                                        showCustomToast("사용가능한 닉네임 입니다.", Toast.LENGTH_SHORT);
-                                        checkNick = true;
-                                        et_join_nick.setClickable(false);
-                                        et_join_nick.setEnabled(false);
-                                        et_join_nick.setFocusable(false);
-                                        et_join_nick.setFocusableInTouchMode(false);
-                                        btn_chk_nick.setClickable(false);
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
+
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                        case "02":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("가입에 실패하였습니다. 잠시 후 다시 시도해보세요.", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
                                     }
 
-                                    break;
-                                case "chk_failure":
-                                    showCustomToast("중복입니다. 다시 입력해주세요", Toast.LENGTH_SHORT);
-                                    break;
-                            }
-                        }
-                    }
-                }
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("result")) {
+                                        js_result = c.getString("result");
 
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
-        }
+                                        switch (js_result) {
+                                            case "chk_success":
+                                                if (checkNum == 0) {
+                                                    handler.post(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            showCustomToast("사용가능한 아이디 입니다.", Toast.LENGTH_SHORT);
+                                                            checkId = true;
+                                                            et_join_id.setClickable(false);
+                                                            et_join_id.setEnabled(false);
+                                                            et_join_id.setFocusable(false);
+                                                            et_join_id.setFocusableInTouchMode(false);
+                                                            btn_chk_id.setClickable(false);
+                                                        }
+                                                    });
+                                                } else if (checkNum == 1) {
+                                                    handler.post(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            showCustomToast("사용가능한 닉네임 입니다.", Toast.LENGTH_SHORT);
+                                                            checkNick = true;
+                                                            et_join_nick.setClickable(false);
+                                                            et_join_nick.setEnabled(false);
+                                                            et_join_nick.setFocusable(false);
+                                                            et_join_nick.setFocusableInTouchMode(false);
+                                                            btn_chk_nick.setClickable(false);
+                                                        }
+                                                    });
+                                                }
+                                                break;
+                                            case "chk_failure":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("중복입니다. 다시 입력해주세요", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                break;
+                                        }
+                                    }
+                                }
+                            }
+
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
+                        }
+
+                    }
+                });
     }
 
-    // 회원가입 처리
-    private class Join extends AsyncTask<Void, Void, String> { // 불러오기
+    // 아이디 닉네임 체크
+    void Join(String url) throws IOException {
 
-        @Override
-        protected String doInBackground(Void... params) {
+        RequestBody body = new FormBody.Builder()
+                .add("join_id", join_id)
+                .add("join_pw", join_pw)
+                .add("join_nick", join_nick)
+                .build();
 
-            try {
-                URL url = new URL(URLlink + "/android2/member/join.php"); // 앨범 폴더의 dbname 폴더에 접근
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-                    StringBuffer buffer = new StringBuffer();
-                    buffer.append("join_id").append("=").append(join_id).append("&");
-                    buffer.append("join_pw").append("=").append(join_pw).append("&");
-                    buffer.append("join_nick").append("=").append(join_nick);
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
-                        System.out.println("json + " + json);
                     }
 
-                    System.out.println("dd" + builder.toString().trim());
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                    return builder.toString().trim();
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-                }
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_result = null;
 
-            } catch (final Exception e) {
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
 
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                    }
 
-        @Override
-        protected void onPostExecute(String result) {
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("result")) {
+                                        js_result = c.getString("result");
 
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
-
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_result = null;
-
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
-
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                break;
-                        }
-
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("result")) {
-                            js_result = c.getString("result");
-
-                            switch (js_result) {
-                                case "success":
-                                    showCustomToast("가입성공", Toast.LENGTH_SHORT);
-                                    // 가입 성공 시 로그인 화면으로
-                                    finish();
-                                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                                    break;
-                                case "already_id":
-                                    showCustomToast("이미 있는 아이디입니다", Toast.LENGTH_SHORT);
-                                    break;
-                                case "already_nick":
-                                    showCustomToast("이미 있는 닉네임입니다", Toast.LENGTH_SHORT);
-                                    break;
+                                        switch (js_result) {
+                                            case "success":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("가입성공", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                // 가입 성공 시 로그인 화면으로
+                                                finish();
+                                                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                                                break;
+                                            case "already_id":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("이미 있는 아이디입니다", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                break;
+                                            case "already_nick":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("이미 있는 닉네임입니다", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                break;
+                                        }
+                                    }
+                                }
                             }
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
                         }
                     }
-                }
-
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
-        }
+                });
     }
 
     private void showCustomToast(String msg, int duration){

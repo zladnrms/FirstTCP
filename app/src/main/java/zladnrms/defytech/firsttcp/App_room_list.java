@@ -5,10 +5,12 @@ import android.content.Intent;
 import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -21,6 +23,7 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
@@ -29,11 +32,23 @@ import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 public class App_room_list extends AppCompatActivity {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
+    private JSONArray jarray = null; // PHP에서 받아온 JSON Array에 대한 처리
 
-    private JSONArray jarray = null;
+    private OkHttpClient client = new OkHttpClient();
+
+    private Handler handler = new Handler();
+
     RotateLoading rotateLoading;
     SharedPreferences pref;
     SharedPreferences.Editor editor;
@@ -72,127 +87,103 @@ public class App_room_list extends AppCompatActivity {
         });
     }
 
-    // 방 목록 가져오기
-    private class GetRoomList extends AsyncTask<String, Void, String> { // 불러오기
+    // 로그인
+    void getList(String url) throws IOException {
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
+        rotateLoading.start();
 
-            rotateLoading.start();
-        }
+        RequestBody body = new FormBody.Builder()
+                .add("nick", nick)
+                .build();
 
-        @Override
-        protected String doInBackground(String... params) {
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-            try {
-                URL url = new URL(URLlink + "/android2/list/get_room_list.php"); // 로그인 php 파일에 접근
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-
-                    StringBuffer buffer = new StringBuffer();
-                    buffer.append("nick").append("=").append(nick);
-
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
-                        System.out.println(json);
                     }
 
-                    return builder.toString().trim();
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                }
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-            } catch (final Exception e) {
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_name = null;
+                                int js_id = 0, js_people = 0, js_maxpeople = 0, js_stage = 0, js_step = 0;
 
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
 
-        @Override
-        protected void onPostExecute(String result) {
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                    }
 
-            if (rotateLoading.isStart()) {
-                rotateLoading.stop();
-            }
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("name")) {
+                                        js_name = c.getString("name");
+                                    }
 
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
+                                    if (!c.isNull("people")) {
+                                        js_people = Integer.valueOf(c.getString("people"));
+                                    }
 
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_name = null;
-                    int js_id = 0, js_people = 0, js_maxpeople = 0, js_stage = 0, js_step = 0;
+                                    if (!c.isNull("_id")) {
+                                        js_id = Integer.valueOf(c.getString("_id"));
+                                    }
 
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
+                                    if (!c.isNull("maxpeople")) {
+                                        js_maxpeople = Integer.valueOf(c.getString("maxpeople"));
+                                    }
 
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                break;
+                                    if (!c.isNull("stage")) {
+                                        js_stage = Integer.valueOf(c.getString("stage"));
+                                    }
+
+                                    if (!c.isNull("step")) {
+                                        js_step = Integer.valueOf(c.getString("step"));
+                                    }
+
+                                    if(js_maxpeople != 0){
+                                        RoomInfo roomInfo = new RoomInfo(js_name, js_id, js_people, js_maxpeople, js_stage, js_step);
+                                        roomlist.add(roomInfo);
+                                        handler.post(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                rv_adapter.notifyDataSetChanged();
+                                            }
+                                        });
+                                    }
+                                }
+                            }
+
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
                         }
 
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("name")) {
-                            js_name = c.getString("name");
-                        }
-
-                        if (!c.isNull("people")) {
-                            js_people = Integer.valueOf(c.getString("people"));
-                        }
-
-                        if (!c.isNull("_id")) {
-                            js_id = Integer.valueOf(c.getString("_id"));
-                        }
-
-                        if (!c.isNull("maxpeople")) {
-                            js_maxpeople = Integer.valueOf(c.getString("maxpeople"));
-                        }
-
-                        if (!c.isNull("stage")) {
-                            js_stage = Integer.valueOf(c.getString("stage"));
-                        }
-
-                        if (!c.isNull("step")) {
-                            js_step = Integer.valueOf(c.getString("step"));
-                        }
-
-                        if(js_maxpeople != 0){
-                            RoomInfo roomInfo = new RoomInfo(js_name, js_id, js_people, js_maxpeople, js_stage, js_step);
-                            roomlist.add(roomInfo);
-                            rv_adapter.notifyDataSetChanged();
-                        }
                     }
-                }
+                });
 
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
+        if (rotateLoading.isStart()) {
+            rotateLoading.stop();
         }
     }
 
@@ -360,7 +351,11 @@ public class App_room_list extends AppCompatActivity {
         super.onResume();
 
         roomlist.clear();
-        new GetRoomList().execute();
+        try {
+            getList(URLlink + "/android2/list/get_room_list.php");
+        }catch (IOException e){
+            Log.d("Exception", "에러 :" + e.getMessage());
+        }
         rv_adapter.notifyDataSetChanged();
     }
 }

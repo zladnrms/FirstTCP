@@ -3,6 +3,7 @@ package zladnrms.defytech.firsttcp;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -22,22 +23,31 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import zladnrms.defytech.firsttcp.SQLite.LoginSQLHelper;
 
 public class App_login extends AppCompatActivity {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
+    private JSONArray jarray = null; // PHP에서 받아온 JSON Array에 대한 처리
 
-    /*
-     * PHP에서 받아온 JSON Array에 대한 처리
-     */
-    private JSONArray jarray = null;
+    private OkHttpClient client = new OkHttpClient();
+
+    private Handler handler = new Handler();
 
     // 로그인 버튼
     Button btn_login;
@@ -80,7 +90,11 @@ public class App_login extends AppCompatActivity {
                     login_id = et_login_id.getText().toString();
                     login_pw = et_login_pw.getText().toString();
 
-                    new Login().execute("");
+                    try {
+                        Login(URLlink + "/android2/member/login.php");
+                    }catch (IOException e){
+                        Log.d("Exception", "에러 :" + e.getMessage());
+                    }
                 } else {
                     showCustomToast("아이디와 비밀번호를 모두 입력해주세요", Toast.LENGTH_SHORT);
                 }
@@ -101,146 +115,145 @@ public class App_login extends AppCompatActivity {
             login_id = loginSqlHelper.chkIdForAuto();
             login_pw = loginSqlHelper.getPwForAuto();
             autoLogin = true;
-            new Login().execute("");
+            try {
+                Login(URLlink + "/android2/member/autologin.php");
+            }catch (IOException e){
+                Log.d("Exception", "에러 :" + e.getMessage());
+            }
         }
     }
 
-    // 로그인 처리
-    private class Login extends AsyncTask<String, Void, String> { // 불러오기
+    // 로그인
+    void Login(String url) throws IOException {
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
+        btn_login.setVisibility(View.GONE);
+        rotateLoading.start();
 
-            btn_login.setVisibility(View.GONE);
+        RequestBody body = new FormBody.Builder()
+                .add("id", login_id)
+                .add("pw", login_pw)
+                .build();
 
-            rotateLoading.start();
-        }
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-        @Override
-        protected String doInBackground(String... params) {
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-            try {
-                URL url = new URL(URLlink + "/android2/member/login.php"); // 로그인 php 파일에 접근
-                if (autoLogin) { // 자동 로그인 시
-                    url = new URL(URLlink + "/android2/member/autologin.php"); // 자동 로그인 php 파일에 접근
-                }
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-
-                    StringBuffer buffer = new StringBuffer();
-                    buffer.append("id").append("=").append(login_id).append("&");
-                    buffer.append("pw").append("=").append(login_pw);
-
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
                     }
 
-                    return builder.toString().trim();
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                }
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-            } catch (final Exception e) {
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_result = null, js_nick = null, js_md5pw = null;
 
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
 
-        @Override
-        protected void onPostExecute(String result) {
-
-            if (rotateLoading.isStart()) {
-                btn_login.setVisibility(View.VISIBLE);
-                rotateLoading.stop();
-            }
-
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
-
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_result = null, js_nick = null, js_md5pw = null;
-
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
-
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                break;
-                            case "02":
-                                showCustomToast("서버 오류입니다 (date_fail)", Toast.LENGTH_SHORT);
-                                break;
-                        }
-
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("result")) {
-                            js_result = c.getString("result");
-
-                            switch (js_result) {
-                                case "miss_id":
-                                    showCustomToast("가입되어 있지 않은 아이디입니다", Toast.LENGTH_SHORT);
-                                    break;
-                                case "miss_pw":
-                                    showCustomToast("비밀번호가 틀렸습니다", Toast.LENGTH_SHORT);
-                                    if (!c.isNull("nick")) {
-                                        js_nick = c.getString("nick");
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                        case "02":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("서버 오류입니다 (date_fail)", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
                                     }
-                                    break;
-                                case "success":
-                                    if (!c.isNull("nick")) {
-                                        js_nick = c.getString("nick");
-                                        showCustomToast("로그인 성공", Toast.LENGTH_SHORT);
-                                        // php에서 받아온 pw의 md5 암호화값
-                                        if (!c.isNull("md5pw") && !autoLogin) { // 자동 로그인이 아닐 경우
-                                            js_md5pw = c.getString("md5pw");
-                                            loginSqlHelper.insert(login_id, js_md5pw);
+
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("result")) {
+                                        js_result = c.getString("result");
+
+                                        switch (js_result) {
+                                            case "miss_id":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("가입되어 있지 않은 아이디입니다", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+
+                                                break;
+                                            case "miss_pw":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("비밀번호가 틀렸습니다", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                if (!c.isNull("nick")) {
+                                                    js_nick = c.getString("nick");
+                                                }
+                                                break;
+                                            case "success":
+                                                if (!c.isNull("nick")) {
+                                                    js_nick = c.getString("nick");
+                                                    handler.post(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            showCustomToast("로그인 성공", Toast.LENGTH_SHORT);
+                                                        }
+                                                    });
+                                                    // php에서 받아온 pw의 md5 암호화값
+                                                    if (!c.isNull("md5pw") && !autoLogin) { // 자동 로그인이 아닐 경우
+                                                        js_md5pw = c.getString("md5pw");
+                                                        loginSqlHelper.insert(login_id, js_md5pw);
+                                                    }
+                                                    //닉네임 저장
+                                                    editor.putString("nick", js_nick);
+                                                    editor.commit();
+                                                    //닉네임 저장 //
+                                                    onTokenRefresh();
+                                                    Intent intent = new Intent(App_login.this, App_room_list.class);
+                                                    startActivity(intent);
+                                                    finish();
+                                                } else { // 받아온 nick이 null이라 일어나는 문제
+                                                    handler.post(new Runnable() {
+                                                        @Override
+                                                        public void run() {
+                                                            showCustomToast("로그인 실패 (네트워크 문제)", Toast.LENGTH_SHORT);
+                                                        }
+                                                    });
+                                                }
+                                                break;
                                         }
-                                        //닉네임 저장
-                                        editor.putString("nick", js_nick);
-                                        editor.commit();
-                                        //닉네임 저장 //
-                                        onTokenRefresh();
-                                        Intent intent = new Intent(App_login.this, App_room_list.class);
-                                        startActivity(intent);
-                                        finish();
-                                    } else { // 받아온 nick이 null이라 일어나는 문제
-                                        showCustomToast("로그인 실패 (네트워크 문제)", Toast.LENGTH_SHORT);
+
                                     }
-                                    break;
+                                }
                             }
 
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
                         }
-                    }
-                }
 
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
+                    }
+                });
+
+        if (rotateLoading.isStart()) {
+            btn_login.setVisibility(View.VISIBLE);
+            rotateLoading.stop();
         }
     }
 

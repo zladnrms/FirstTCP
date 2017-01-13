@@ -3,8 +3,10 @@ package zladnrms.defytech.firsttcp;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.AsyncTask;
+import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
@@ -20,17 +22,30 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
+import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.OutputStreamWriter;
 import java.io.PrintWriter;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
 public class App_room_add extends AppCompatActivity {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
+    private JSONArray jarray = null; // PHP에서 받아온 JSON Array에 대한 처리
 
-    private JSONArray jarray = null;
+    private OkHttpClient client = new OkHttpClient();
+
+    private Handler handler = new Handler();
 
     EditText et_addroom_name, et_addroom_maxpeople;
     RotateLoading rotateLoading;
@@ -67,7 +82,11 @@ public class App_room_add extends AppCompatActivity {
                     et_addroom_maxpeople.requestFocus();
                 } else {
                     setRoominfo();
-                    new AddRoom().execute();
+                    try {
+                        addRoom(URLlink + "/android2/roomcnt/add_room.php");
+                    }catch (IOException e){
+                        Log.d("Exception", "에러 :" + e.getMessage());
+                    }
                 }
             }
         });
@@ -78,114 +97,96 @@ public class App_room_add extends AppCompatActivity {
         room_maxpeople = et_addroom_maxpeople.getText().toString();
     }
 
-    // 방 목록 가져오기
-    private class AddRoom extends AsyncTask<String, Void, String> { // 불러오기
+    // 로그인
+    void addRoom(String url) throws IOException {
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
+        rotateLoading.start();
 
-            rotateLoading.start();
-        }
+        RequestBody body = new FormBody.Builder()
+                .add("room_master", nick)
+                .add("room_name", room_name)
+                .add("room_maxpeople", room_maxpeople)
+                .build();
 
-        @Override
-        protected String doInBackground(String... params) {
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-            try {
-                URL url = new URL(URLlink + "/android2/roomcnt/add_room.php"); // 로그인 php 파일에 접근
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-
-                    StringBuffer buffer = new StringBuffer();
-                    buffer.append("room_master").append("=").append(nick).append("&");
-                    buffer.append("room_name").append("=").append(room_name).append("&");
-                    buffer.append("room_maxpeople").append("=").append(room_maxpeople);
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
-                        System.out.println(json);
                     }
 
-                    return builder.toString().trim();
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                }
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-            } catch (final Exception e) {
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_result = null;
 
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
 
-        @Override
-        protected void onPostExecute(String result) {
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                        case "02":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("방 생성 실패. 잠시 후 다시 시도해주세요", Toast.LENGTH_SHORT);
+                                                }
+                                            });
+                                            break;
+                                    }
 
-            if (rotateLoading.isStart()) {
-                rotateLoading.stop();
-            }
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("result")) {
+                                        js_result = c.getString("result");
 
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
+                                        switch (js_result) {
+                                            case "success":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("방 생성 성공", Toast.LENGTH_SHORT);
+                                                    }
+                                                });
+                                                Intent intent = new Intent(App_room_add.this, App_room_list.class);
+                                                startActivity(intent);
+                                                finish();
+                                                break;
+                                        }
 
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_result = null;
-
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
-
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                break;
-                            case "02":
-                                showCustomToast("방 생성 실패. 잠시 후 다시 시도해주세요", Toast.LENGTH_SHORT);
-                                break;
-                        }
-
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("result")) {
-                            js_result = c.getString("result");
-
-                            switch (js_result) {
-                                case "success":
-                                    showCustomToast("방 생성 성공", Toast.LENGTH_SHORT);
-                                    Intent intent = new Intent(App_room_add.this, App_room_list.class);
-                                    startActivity(intent);
-                                    finish();
-                                    break;
+                                    }
+                                }
                             }
 
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
                         }
-                    }
-                }
 
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
+                    }
+                });
+
+        if (rotateLoading.isStart()) {
+            rotateLoading.stop();
         }
     }
 

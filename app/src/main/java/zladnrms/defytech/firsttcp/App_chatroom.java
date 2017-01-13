@@ -45,6 +45,13 @@ import java.net.URL;
 import java.net.UnknownHostException;
 import java.util.ArrayList;
 
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.FormBody;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
 import zladnrms.defytech.firsttcp.Client.PositionRect;
 import zladnrms.defytech.firsttcp.Packet.ChatPacket;
 import zladnrms.defytech.firsttcp.Packet.EntryPacket;
@@ -58,8 +65,12 @@ import zladnrms.defytech.firsttcp.Packet.StartQueuePacket;
 public class App_chatroom extends AppCompatActivity implements View.OnClickListener {
 
     static final String URLlink = "http://115.71.238.61"; // 호스팅 URL
+    private JSONArray jarray = null; // PHP에서 받아온 JSON Array에 대한 처리
 
-    private JSONArray jarray = null;
+    private OkHttpClient client = new OkHttpClient();
+
+    private Handler handler = new Handler();
+
     private RotateLoading rotateLoading;
 
     // Connection
@@ -115,10 +126,6 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
     // 포지션
     ImageView pos_0, pos_1, pos_2, pos_3, pos_4;
     ImageView enemy_pos_0, enemy_pos_1, enemy_pos_2, enemy_pos_3, enemy_pos_4;
-
-    private Handler handler = new Handler();
-
-
 
     // 방 정보
     private String room_name, room_master;
@@ -249,11 +256,15 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
         });
 
         // 방 정보 받아오기
-        new getRoomInfo().execute();
+        try {
+            getRoomInfo(URLlink + "/android2/content/get_room_info.php");
+        }catch (IOException e){
+            Log.d("Exception", "에러 :" + e.getMessage());
+        }
 
         // 서버와 통신 스레드
         getPacket = new GetPacket();
-        getPacket.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+        getPacket.execute();
 
         /*
          * 게임 내 요소
@@ -427,6 +438,7 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
                 while (true) {
 
                     if (enterMsgCheck && (ois != null)) {
+                        Log.d("TCP Send","입장 보냄");
                         try {
                             setPacketInfo(0);
                             entryPacket = new EntryPacket(roomId, nick, dataLength, 0);
@@ -749,143 +761,130 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    //-- 접속 시 방 정보 받아오기
-    private class getRoomInfo extends AsyncTask<Void, Void, String> { // 불러오기
+    // 로그인
+    void getRoomInfo(String url) throws IOException {
 
+        rotateLoading.start();
 
-        @Override
-        protected void onPreExecute() {
-            super.onPreExecute();
+        RequestBody body = new FormBody.Builder()
+                .add("roomId", String.valueOf(roomId))
+                .build();
 
-            rotateLoading.start();
-        }
+        Request request = new Request.Builder()
+                .url(url)
+                .post(body)
+                .build();
 
-        @Override
-        protected String doInBackground(Void... params) {
+        client.newCall(request)
+                .enqueue(new Callback() {
+                    @Override
+                    public void onFailure(Call call, IOException e) {
+                        System.out.println(e.getMessage());
 
-            try {
-                URL url = new URL(URLlink + "/android2/content/get_room_info.php"); // 앨범 폴더의 dbname 폴더에 접근
-                HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-                if (conn != null) {
-                    conn.setConnectTimeout(10000);
-                    conn.setUseCaches(false);
-                    conn.setDoInput(true);
-                    conn.setDoOutput(true);
-                    conn.setRequestMethod("POST");
-                    conn.setInstanceFollowRedirects(false); // 추가됨
-                    conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
-
-                    StringBuffer buffer = new StringBuffer();
-                    buffer.append("roomId").append("=").append(roomId);
-
-                    OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
-                    PrintWriter writer = new PrintWriter(outStream);
-                    writer.write(buffer.toString());
-                    writer.flush();
-
-                    // 보내기  &&  받기
-                    //헤더 받는 부분
-
-                    InputStreamReader tmp = new InputStreamReader(conn.getInputStream(), "UTF-8");
-                    BufferedReader reader = new BufferedReader(tmp);
-                    StringBuilder builder = new StringBuilder();
-                    String json;
-                    while ((json = reader.readLine()) != null) {       // 서버에서 라인단위로 보내줄 것이므로 라인단위로 읽는다
-                        builder.append(json + "\n");
-                        System.out.println("json + " + json);
                     }
 
-                    return builder.toString().trim();
+                    @Override
+                    public void onResponse(Call call, Response response) throws IOException {
+                        String res = response.body().string();
+                        System.out.println(res);
 
-                }
+                        try {
+                            JSONObject jsonObj = new JSONObject(res);
+                            jarray = jsonObj.getJSONArray("result");
 
-            } catch (final Exception e) {
+                            for (int i = 0; i < jarray.length(); i++) {
+                                JSONObject c = jarray.getJSONObject(i);
+                                String js_error = null, js_result = null;
 
-                System.out.println("Error: " + e.getMessage());
-                e.printStackTrace();
-            }
-            return null;
-        }
+                                if (!c.isNull("error")) { // 우선 에러를 검출함
+                                    js_error = c.getString("error");
 
-        @Override
-        protected void onPostExecute(String result) {
-
-            if (rotateLoading.isStart()) {
-                rotateLoading.stop();
-            }
-
-            try {
-                JSONObject jsonObj = new JSONObject(result);
-                jarray = jsonObj.getJSONArray("result");
-
-                for (int i = 0; i < jarray.length(); i++) {
-                    JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_result = null;
-
-                    if (!c.isNull("error")) { // 우선 에러를 검출함
-                        js_error = c.getString("error");
-
-                        switch (js_error) {
-                            case "01":
-                                showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
-                                finish();
-                                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                                break;
-                        }
-
-                    } else { // 에러가 없으면 진행
-                        if (!c.isNull("result")) {
-                            js_result = c.getString("result");
-
-                            switch (js_result) {
-                                case "success": // 방 정보 받아옴
-                                    if (!c.isNull("name")) {
-                                        room_name = c.getString("name");
+                                    switch (js_error) {
+                                        case "01":
+                                            handler.post(new Runnable() {
+                                                @Override
+                                                public void run() {
+                                                    showCustomToast("DB 연결에 실패하였습니다", Toast.LENGTH_SHORT);
+                                                    finish();
+                                                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                                                }
+                                            });
+                                            break;
                                     }
 
-                                    if (!c.isNull("people")) {
-                                        room_people = Integer.valueOf(c.getString("people"));
-                                    }
+                                } else { // 에러가 없으면 진행
+                                    if (!c.isNull("result")) {
+                                        js_result = c.getString("result");
 
-                                    if (!c.isNull("master")) {
-                                        room_master = c.getString("master");
-                                        if (room_step == 0) { // 방이 준비중인 방이면
-                                            btn_gameReady.setVisibility(View.GONE);
+                                        switch (js_result) {
+                                            case "success": // 방 정보 받아옴
+                                                if (!c.isNull("name")) {
+                                                    room_name = c.getString("name");
+                                                }
+
+                                                if (!c.isNull("people")) {
+                                                    room_people = Integer.valueOf(c.getString("people"));
+                                                }
+
+                                                if (!c.isNull("master")) {
+                                                    room_master = c.getString("master");
+                                                    if (room_step == 0) { // 방이 준비중인 방이면
+                                                        handler.post(new Runnable() {
+                                                            @Override
+                                                            public void run() {
+                                                                btn_gameReady.setVisibility(View.GONE);
+                                                            }
+                                                        });
+                                                    }
+                                                }
+
+                                                if (!c.isNull("maxpeople")) {
+                                                    room_maxpeople = Integer.valueOf(c.getString("maxpeople"));
+                                                    if (room_people == room_maxpeople) {
+                                                        handler.post(new Runnable() {
+                                                            @Override
+                                                            public void run() {
+                                                                showCustomToast("방이 꽉 찼습니다", Toast.LENGTH_SHORT);
+                                                                finish();
+                                                                overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                                                            }
+                                                        });
+                                                    }
+                                                }
+
+                                                if (!c.isNull("stage")) {
+                                                    room_stage = Integer.valueOf(c.getString("stage"));
+                                                }
+
+                                                if (!c.isNull("step")) {
+                                                    room_step = Integer.valueOf(c.getString("step"));
+                                                }
+
+                                                break;
+                                            case "not_exist":
+                                                handler.post(new Runnable() {
+                                                    @Override
+                                                    public void run() {
+                                                        showCustomToast("해당 방 정보가 없습니다.", Toast.LENGTH_SHORT);
+                                                        finish();
+                                                        overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
+                                                    }
+                                                });
+                                                break;
                                         }
                                     }
-
-                                    if (!c.isNull("maxpeople")) {
-                                        room_maxpeople = Integer.valueOf(c.getString("maxpeople"));
-                                        if (room_people == room_maxpeople) {
-                                            showCustomToast("방이 꽉 찼습니다", Toast.LENGTH_SHORT);
-                                            finish();
-                                            overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                                        }
-                                    }
-
-                                    if (!c.isNull("stage")) {
-                                        room_stage = Integer.valueOf(c.getString("stage"));
-                                    }
-
-                                    if (!c.isNull("step")) {
-                                        room_step = Integer.valueOf(c.getString("step"));
-                                    }
-
-                                    break;
-                                case "not_exist":
-                                    showCustomToast("해당 방 정보가 없습니다.", Toast.LENGTH_SHORT);
-                                    finish();
-                                    overridePendingTransition(android.R.anim.fade_in, android.R.anim.fade_out);
-                                    break;
+                                }
                             }
-                        }
-                    }
-                }
 
-            } catch (JSONException e) {
-                System.out.println("JSONException : " + e);
-            }
+                        } catch (JSONException e) {
+                            System.out.println("JSONException : " + e);
+                        }
+
+                    }
+                });
+
+        if (rotateLoading.isStart()) {
+            rotateLoading.stop();
         }
     }
 

@@ -82,6 +82,7 @@ public class TCPServer {
         InputStream is;
         ObjectOutputStream oos;
         ObjectInputStream ois;
+        boolean entrance = false;
 
         // 패킷에 담을 정보
         String usernick, chat;
@@ -118,14 +119,6 @@ public class TCPServer {
 
                 System.out.println("User 한 명이 접속을 시도합니다.");
 
-                while (ois == null) {
-                    if(ois != null)
-                        break;
-                    else{
-                        ois = new ObjectInputStream(is);
-                    }
-                }
-
                 while (ois != null) {
 
                     HeaderPacket headerPacket = (HeaderPacket) ois.readObject();
@@ -147,6 +140,8 @@ public class TCPServer {
                             sendAllEntryMsg(roomId, usernick, 0);
                             toServer(usernick, roomId, 0);
 
+                            entrance = true; // 접속 상태 true
+
                             //System.out.println("총 접속자 수 : " + clientMap.size() );
 
                             break;
@@ -160,6 +155,8 @@ public class TCPServer {
 
                             sendAllEntryMsg(roomId, usernick, 1);
                             toServer(usernick, roomId, 1);
+
+                            entrance = false; // 접속 상태 false
 
                             socket.close();
                             break;

@@ -62,7 +62,6 @@
         </service>
 
         <activity android:name=".App_join" />
-        <activity android:name=".App_chatlist" />
         <activity android:name=".App_room_list"/>
         <activity android:name=".App_chatroom"
             android:screenOrientation="portrait"/>
