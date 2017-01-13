@@ -7,6 +7,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.app.Service;
 import android.content.Intent;
+import android.opengl.GLSurfaceView;
 import android.os.AsyncTask;
 import android.os.Build;
 import android.os.CountDownTimer;
@@ -14,20 +15,15 @@ import android.os.IBinder;
 import android.os.SystemClock;
 import android.util.Log;
 
-import java.io.ByteArrayOutputStream;
-import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.ObjectInputStream;
-import java.io.OutputStream;
 import java.net.Socket;
 import java.net.UnknownHostException;
-
 import zladnrms.defytech.firsttcp.Packet.ChatPacket;
 import zladnrms.defytech.firsttcp.Packet.HeaderPacket;
 
 public class Service_get_message extends Service {
-
     private static final int MILLISINFUTURE = 1000*1000;
     private static final int COUNT_DOWN_INTERVAL = 1000;
 
@@ -224,5 +220,4 @@ public class Service_get_message extends Service {
         }
 
     }
-
 }

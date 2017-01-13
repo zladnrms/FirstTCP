@@ -32,13 +32,13 @@ public class App_room_add extends AppCompatActivity {
 
     private JSONArray jarray = null;
 
-    EditText et_addroom_name, et_addroom_maxpeople, et_addroom_rule;
+    EditText et_addroom_name, et_addroom_maxpeople;
     RotateLoading rotateLoading;
     SharedPreferences pref;
     SharedPreferences.Editor editor;
     String nick;
 
-    String room_name, room_maxpeople, room_rule;
+    String room_name, room_maxpeople, room_level;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,10 +49,11 @@ public class App_room_add extends AppCompatActivity {
         pref = getSharedPreferences("nickname", 0);
         editor = pref.edit();
 
+        nick = pref.getString("nick", "사용자"); // 닉네임 저장
+
         rotateLoading = (RotateLoading) findViewById(R.id.rotateloading);
         et_addroom_name = (EditText) findViewById(R.id.et_addroom_name);
         et_addroom_maxpeople = (EditText) findViewById(R.id.et_addroom_maxpeople);
-        et_addroom_rule = (EditText) findViewById(R.id.et_addroom_rule);
 
         Button btn_submit = (Button) findViewById(R.id.btn_submit);
         btn_submit.setOnClickListener(new View.OnClickListener() {
@@ -64,9 +65,6 @@ public class App_room_add extends AppCompatActivity {
                 } else if (et_addroom_maxpeople.getText().toString().equals("")) {
                     showCustomToast("방 최대 인원을 설정해주세요", Toast.LENGTH_SHORT);
                     et_addroom_maxpeople.requestFocus();
-                } else if (et_addroom_rule.getText().toString().equals("")) {
-                    showCustomToast("규칙을 정해주세요", Toast.LENGTH_SHORT);
-                    et_addroom_rule.requestFocus();
                 } else {
                     setRoominfo();
                     new AddRoom().execute();
@@ -78,7 +76,6 @@ public class App_room_add extends AppCompatActivity {
     private void setRoominfo() {
         room_name = et_addroom_name.getText().toString();
         room_maxpeople = et_addroom_maxpeople.getText().toString();
-        room_rule = et_addroom_rule.getText().toString();
     }
 
     // 방 목록 가져오기
@@ -95,7 +92,7 @@ public class App_room_add extends AppCompatActivity {
         protected String doInBackground(String... params) {
 
             try {
-                URL url = new URL(URLlink + "/android2/roomcnt/addroom.php"); // 로그인 php 파일에 접근
+                URL url = new URL(URLlink + "/android2/roomcnt/add_room.php"); // 로그인 php 파일에 접근
 
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
@@ -111,8 +108,7 @@ public class App_room_add extends AppCompatActivity {
                     StringBuffer buffer = new StringBuffer();
                     buffer.append("room_master").append("=").append(nick).append("&");
                     buffer.append("room_name").append("=").append(room_name).append("&");
-                    buffer.append("room_maxpeople").append("=").append(room_maxpeople).append("&");
-                    buffer.append("room_rule").append("=").append(room_rule);
+                    buffer.append("room_maxpeople").append("=").append(room_maxpeople);
 
                     OutputStreamWriter outStream = new OutputStreamWriter(conn.getOutputStream(), "UTF-8");
                     PrintWriter writer = new PrintWriter(outStream);

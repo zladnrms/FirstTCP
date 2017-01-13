@@ -3,6 +3,7 @@ package zladnrms.defytech.firsttcp;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.graphics.Color;
 import android.os.AsyncTask;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
@@ -52,6 +53,7 @@ public class App_room_list extends AppCompatActivity {
         editor = pref.edit();
 
         rotateLoading = (RotateLoading) findViewById(R.id.rotateloading);
+
         rv_roomlist = (RecyclerView) findViewById(R.id.rv_roomList);
         roomlist =new ArrayList<>();
         rv_adapter =new RoomlistAdapter(roomlist);
@@ -84,7 +86,7 @@ public class App_room_list extends AppCompatActivity {
         protected String doInBackground(String... params) {
 
             try {
-                URL url = new URL(URLlink + "/android2/list/getroomlist.php"); // 로그인 php 파일에 접근
+                URL url = new URL(URLlink + "/android2/list/get_room_list.php"); // 로그인 php 파일에 접근
 
                 HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
@@ -143,8 +145,8 @@ public class App_room_list extends AppCompatActivity {
 
                 for (int i = 0; i < jarray.length(); i++) {
                     JSONObject c = jarray.getJSONObject(i);
-                    String js_error = null, js_name = null, js_rule = null;
-                    int js_id = 0, js_people = 0, js_maxpeople = 0;
+                    String js_error = null, js_name = null;
+                    int js_id = 0, js_people = 0, js_maxpeople = 0, js_stage = 0, js_step = 0;
 
                     if (!c.isNull("error")) { // 우선 에러를 검출함
                         js_error = c.getString("error");
@@ -168,17 +170,23 @@ public class App_room_list extends AppCompatActivity {
                             js_id = Integer.valueOf(c.getString("_id"));
                         }
 
-                        if (!c.isNull("rule")) {
-                            js_rule = c.getString("rule");
-                        }
-
                         if (!c.isNull("maxpeople")) {
                             js_maxpeople = Integer.valueOf(c.getString("maxpeople"));
                         }
 
-                        RoomInfo roomInfo = new RoomInfo(js_name, js_rule, js_id, js_people, js_maxpeople);
-                        roomlist.add(roomInfo);
-                        rv_adapter.notifyDataSetChanged();
+                        if (!c.isNull("stage")) {
+                            js_stage = Integer.valueOf(c.getString("stage"));
+                        }
+
+                        if (!c.isNull("step")) {
+                            js_step = Integer.valueOf(c.getString("step"));
+                        }
+
+                        if(js_maxpeople != 0){
+                            RoomInfo roomInfo = new RoomInfo(js_name, js_id, js_people, js_maxpeople, js_stage, js_step);
+                            roomlist.add(roomInfo);
+                            rv_adapter.notifyDataSetChanged();
+                        }
                     }
                 }
 
@@ -195,7 +203,8 @@ public class App_room_list extends AppCompatActivity {
         public class ViewHolder extends RecyclerView.ViewHolder {
             ImageView rv_roomlist_img;
             TextView tv_roomlist_room;
-            TextView tv_roomlist_rule;
+            TextView tv_roomlist_step;
+            TextView tv_roomlist_stage;
             TextView tv_roomlist_people;
 
             public ViewHolder(View view) {
@@ -203,7 +212,8 @@ public class App_room_list extends AppCompatActivity {
 
                 rv_roomlist_img = (ImageView) view.findViewById(R.id.iv_roomlist);
                 tv_roomlist_room = (TextView) view.findViewById(R.id.tv_roomlist_name);
-                tv_roomlist_rule = (TextView) view.findViewById(R.id.tv_roomlist_rule);
+                tv_roomlist_step = (TextView) view.findViewById(R.id.tv_roomlist_step);
+                tv_roomlist_stage = (TextView) view.findViewById(R.id.tv_roomlist_stage);
                 tv_roomlist_people = (TextView) view.findViewById(R.id.tv_roomlist_people);
             }
         }
@@ -223,25 +233,55 @@ public class App_room_list extends AppCompatActivity {
         @Override
         public void onBindViewHolder(final ViewHolder holder, final int position) {
 
+            final int roomId = roomlist.get(position).getId();
+            final int people = roomlist.get(position).getPeople();
+            final int maxpeople = roomlist.get(position).getMaxpeople();
+            final int step = roomlist.get(position).getStep();
+            final int stage = roomlist.get(position).getStage();
+            final String subject = roomlist.get(position).getSubject();
+
             holder.itemView.setOnClickListener(new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    Intent intent = new Intent(App_room_list.this, App_chatroom.class);
-                    //intent.putExtra("roomId", roomlist.get(position).getId());
-                    startActivity(intent);
+                    if(people >= maxpeople) {
+                        showCustomToast("해당 방 인원이 가득 찼습니다", 1500);
+                    } else if(step == 2) {
+                        showCustomToast("이미 종료된 방입니다", 1500);
+                    } else {
+                        Intent intent = new Intent(App_room_list.this, App_chatroom.class);
+                        intent.putExtra("roomId", roomId);
+                        startActivity(intent);
+                    }
                 }
             });
 
             if (holder.tv_roomlist_room != null) {
-                holder.tv_roomlist_room.setText(roomlist.get(position).getSubject());
-            }
-
-            if (holder.tv_roomlist_rule != null) {
-                holder.tv_roomlist_rule.setText(roomlist.get(position).getRule());
+                holder.tv_roomlist_room.setText(subject);
             }
 
             if (holder.tv_roomlist_people != null) {
-                holder.tv_roomlist_people.setText(roomlist.get(position).getPeople() + " / " + roomlist.get(position).getMaxpeople());
+                holder.tv_roomlist_people.setText(" "+"(" + people + " / " + maxpeople + ")");
+            }
+
+            if (holder.tv_roomlist_stage != null) {
+                holder.tv_roomlist_stage.setText("스테이지" + stage);
+            }
+
+            if (holder.tv_roomlist_step != null) {
+                switch (step) {
+                    case 0:
+                        holder.tv_roomlist_step.setText("준비중");
+                        holder.tv_roomlist_step.setTextColor(Color.parseColor("#368AFF"));
+                        break;
+                    case 1:
+                        holder.tv_roomlist_step.setText("진행중");
+                        holder.tv_roomlist_step.setTextColor(Color.parseColor("#65D35D"));
+                        break;
+                    case 2:
+                        holder.tv_roomlist_step.setText("종료됨");
+                        holder.tv_roomlist_step.setTextColor(Color.parseColor("#DF4D4D"));
+                        break;
+                }
             }
         }
 
@@ -251,28 +291,26 @@ public class App_room_list extends AppCompatActivity {
         }
     }
 
-    class RoomInfo { // 게시물 정보 클래스
+    class RoomInfo { // 게임방 정보 클래스
 
         private String roomSubject;
-        private String roomRule;
         private int roomId;
         private int roomPeople;
         private int roomMaxpeople;
+        private int roomStage;
+        private int roomStep;
 
-        public RoomInfo(String _subject, String _rule, int _id, int _people, int _maxpeople) {
+        public RoomInfo(String _subject, int _id, int _people, int _maxpeople, int _stage, int _step) {
             this.roomSubject = _subject;
-            this.roomRule = _rule;
             this.roomId = _id;
             this.roomPeople = _people;
             this.roomMaxpeople = _maxpeople;
+            this.roomStage = _stage;
+            this.roomStep = _step;
         }
 
         public String getSubject() {
             return roomSubject;
-        }
-
-        public String getRule() {
-            return roomRule;
         }
 
         public int getId() {
@@ -285,6 +323,14 @@ public class App_room_list extends AppCompatActivity {
 
         public int getMaxpeople() {
             return roomMaxpeople;
+        }
+
+        public int getStage() {
+            return roomStage;
+        }
+
+        public int getStep() {
+            return roomStep;
         }
     }
 

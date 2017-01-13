@@ -32,7 +32,8 @@
                 <EditText
                     android:id="@+id/et_addroom_name"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:layout_height="wrap_content"
+                    android:maxLines="1"/>
 
             </TableRow>
 
@@ -48,25 +49,11 @@
                 <EditText
                     android:id="@+id/et_addroom_maxpeople"
                     android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
-
-            </TableRow>
-
-            <TableRow>
-
-                <TextView
-                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_gravity="center"
-                    android:text="규 칙"
-                    android:textSize="20dp"/>
-
-                <EditText
-                    android:id="@+id/et_addroom_rule"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"/>
+                    android:inputType="number"/>
 
             </TableRow>
+
 
         </TableLayout>
 

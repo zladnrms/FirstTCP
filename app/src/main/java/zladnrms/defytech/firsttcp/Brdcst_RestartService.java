@@ -36,7 +36,5 @@ public class Brdcst_RestartService extends BroadcastReceiver {
             context.startService(i);
 
         }
-
-
     }
 }

@@ -1,4 +1,4 @@
-package zladnrms.defytech.firsttcp;
+package zladnrms.defytech.firsttcp.Server;
 
 /**
  * Created by Administrator on 2016-11-24.

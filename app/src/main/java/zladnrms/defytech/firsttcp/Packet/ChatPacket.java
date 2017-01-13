@@ -21,18 +21,6 @@ public class ChatPacket extends HeaderPacket implements Serializable {
         this.chat = chat;
     }
 
-    public void setRoomId(int roomId) {
-        this.roomId = roomId;
-    }
-
-    public void setUserNick(String userNick) {
-        this.userNick = userNick;
-    }
-
-    public void setChat(String chat) {
-        this.chat = chat;
-    }
-
     public int getRoomId() {
         return roomId;
     }
