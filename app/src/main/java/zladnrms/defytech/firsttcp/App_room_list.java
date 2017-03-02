@@ -67,6 +67,8 @@ public class App_room_list extends AppCompatActivity {
         pref = getSharedPreferences("nickname", 0);
         editor = pref.edit();
 
+        nick = pref.getString("nick", "손님");
+
         rotateLoading = (RotateLoading) findViewById(R.id.rotateloading);
 
         rv_roomlist = (RecyclerView) findViewById(R.id.rv_roomList);

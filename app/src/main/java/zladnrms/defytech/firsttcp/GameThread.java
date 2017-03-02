@@ -13,13 +13,15 @@ import android.view.Display;
 import android.view.SurfaceHolder;
 import android.view.WindowManager;
 
-import zladnrms.defytech.firsttcp.Client.PositionRect;
+import java.util.ArrayList;
+
+import zladnrms.defytech.firsttcp.Client.PosClass;
 
 /**
  * Created by Administrator on 2016-12-01.
  */
 
-public class GameThread_backup extends Thread {
+public class GameThread extends Thread {
 
     private SurfaceHolder sf_holder;
     private GameSurfaceView sfv;
@@ -43,10 +45,10 @@ public class GameThread_backup extends Thread {
     private Canvas _canvas;
 
     // 포지션 Rect 저장 클래스,
-    PositionRect positionRect;
+    ArrayList<PosClass> posList;
     int userInfo_Position = 100;
 
-    public GameThread_backup(SurfaceHolder _sf_holder, GameSurfaceView _sfv, Context _context) {
+    public GameThread(SurfaceHolder _sf_holder, GameSurfaceView _sfv, Context _context) {
 
         this.sf_holder = _sf_holder;
         this.sfv = _sfv;
@@ -99,9 +101,8 @@ public class GameThread_backup extends Thread {
         //object = BitmapFactory.decodeResource(res, R.drawable.plate_0);
     }
 
-    // Position 절대좌표 저장된 클래스 받아오기
-    public void setPositionRect(PositionRect positionRect) {
-        this.positionRect = positionRect;
+    public void setPositionList(ArrayList<PosClass> posList) {
+        this.posList = posList;
     }
 
     public void setPositionWhenStart(int position){
@@ -115,10 +116,39 @@ public class GameThread_backup extends Thread {
 
     // 게임 시작 시 유저 세팅
     public void setUser(int position){
-        Rect pos = positionRect.getRect(position);
-        _canvas.drawBitmap(user, null, pos, null);
 
-        System.out.println("렉트값 :" + pos.left + ", " + pos.top + ", " + pos.right + ", " + pos.bottom);
+        int x = 0, y = 0;
+
+        switch (position){
+            case 0:
+                x = posList.get(0).x;
+                y = posList.get(0).y;
+                break;
+            case 1:
+                x = posList.get(1).x;
+                y = posList.get(1).y;
+                break;
+            case 2:
+                x = posList.get(2).x;
+                y = posList.get(2).y;
+                break;
+            case 3:
+                x = posList.get(3).x;
+                y = posList.get(3).y;
+                break;
+            case 4:
+                x = posList.get(4).x;
+                y = posList.get(4).y;
+                break;
+        }
+
+        _canvas.drawBitmap(user, x, y, null);
+
+        System.out.println("렉트값 :" + x + ", " + y);
+    }
+
+    public void setEnemyUser(int position){
+
     }
 
     public void setRunning(boolean _m_run) {

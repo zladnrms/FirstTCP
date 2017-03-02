@@ -52,7 +52,7 @@ import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
-import zladnrms.defytech.firsttcp.Client.PositionRect;
+import zladnrms.defytech.firsttcp.Client.PosClass;
 import zladnrms.defytech.firsttcp.Packet.ChatPacket;
 import zladnrms.defytech.firsttcp.Packet.EntryPacket;
 import zladnrms.defytech.firsttcp.Packet.GameReadyPacket;
@@ -314,36 +314,21 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
         slctPos_3.setOnClickListener(this);
         slctPos_4.setOnClickListener(this);
 
-        // position 10개 절대좌표 담은 Rect 값 저장
-        ArrayList<Rect> rectList = new ArrayList<Rect>();
-        Rect r = new Rect();
-        pos_0.getGlobalVisibleRect(r);
-        System.out.println("0 : "+ r.left + "," + r.top+"," + r.width());
-        rectList.add(r);
-        pos_1.getGlobalVisibleRect(r);
-        rectList.add(r);
-        pos_2.getGlobalVisibleRect(r);
-        rectList.add(r);
-        pos_3.getGlobalVisibleRect(r);
-        rectList.add(r);
-        pos_4.getGlobalVisibleRect(r);
-        rectList.add(r);
-        enemy_pos_0.getGlobalVisibleRect(r);
-        rectList.add(r);
-        enemy_pos_1.getGlobalVisibleRect(r);
-        rectList.add(r);
-        enemy_pos_2.getGlobalVisibleRect(r);
-        rectList.add(r);
-        enemy_pos_3.getGlobalVisibleRect(r);
-        rectList.add(r);
-        enemy_pos_4.getGlobalVisibleRect(r);
-        rectList.add(r);
-        PositionRect positionRect = new PositionRect(rectList);
-        sfv.setPositionRect(positionRect);
+        getAbsolutePos(pos_0);
 
-        for(int i=0;i<positionRect.rectList.size();i++){
-            System.out.println(i+" : "+positionRect.rectList.get(i).left+","+positionRect.rectList.get(i).top+","+positionRect.rectList.get(i).right+","+positionRect.rectList.get(i).bottom);
-        }
+        // position 10개 절대좌표 담은 Rect 값 저장
+        ArrayList<PosClass> posList = new ArrayList<PosClass>();
+        posList.add(getAbsolutePos(pos_0));
+        posList.add(getAbsolutePos(pos_1));
+        posList.add(getAbsolutePos(pos_2));
+        posList.add(getAbsolutePos(pos_3));
+        posList.add(getAbsolutePos(pos_4));
+        posList.add(getAbsolutePos(enemy_pos_0));
+        posList.add(getAbsolutePos(enemy_pos_1));
+        posList.add(getAbsolutePos(enemy_pos_2));
+        posList.add(getAbsolutePos(enemy_pos_3));
+        posList.add(getAbsolutePos(enemy_pos_4));
+        sfv.setPositionList(posList);
     }
 
     // 패킷 설정
@@ -886,6 +871,24 @@ public class App_chatroom extends AppCompatActivity implements View.OnClickListe
         if (rotateLoading.isStart()) {
             rotateLoading.stop();
         }
+    }
+
+    private PosClass getAbsolutePos(View view){
+        PosClass pos = new PosClass(0, 0);
+
+        View parentView = view.getRootView();
+
+        boolean swit = false;
+        while(!swit){
+            pos.x += view.getX();
+            pos.y += view.getY();
+
+            view = (View)view.getParent();
+            if(parentView == view)
+                swit = true;
+        }
+
+        return pos;
     }
 
     private void showCustomToast(String msg, int duration) {

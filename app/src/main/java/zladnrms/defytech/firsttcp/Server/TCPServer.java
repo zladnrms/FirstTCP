@@ -21,6 +21,7 @@ import java.util.Collections;
 import java.util.HashMap;
 import java.util.Iterator;
 
+import zladnrms.defytech.firsttcp.Packet.AckPacket;
 import zladnrms.defytech.firsttcp.Packet.ChatPacket;
 import zladnrms.defytech.firsttcp.Packet.EntryPacket;
 import zladnrms.defytech.firsttcp.Packet.GameReadyPacket;
@@ -94,11 +95,15 @@ public class TCPServer {
         ArrayList<String> userList = new ArrayList<String>();
 
         // 패킷 클래스
+        AckPacket ackPacket;
         EntryPacket entryPacket;
         ChatPacket chatPacket;
         PositionPacket positionPacket;
         GameReadyPacket gameReadyPacket;
         StartQueuePacket startQueuePacket;
+
+        // 패킷 설정
+        PacketSetting packetSetting = new PacketSetting();
 
         public MultiServerRec(Socket socket) {
             this.socket = socket;
@@ -127,22 +132,24 @@ public class TCPServer {
 
                     switch (requestCode) {
                         case 0: // 입장 패킷
-                            entryPacket = (EntryPacket) headerPacket;
-                            usernick = entryPacket.getUserNick();
-                            roomId = entryPacket.getRoomId();
+                            if (!entrance) { // 입장 여부가 false 일때만 실행
+                                entryPacket = (EntryPacket) headerPacket;
+                                usernick = entryPacket.getUserNick();
+                                roomId = entryPacket.getRoomId();
 
-                            getUserInRoom(roomId); // 입장 시 그 방 내의 유저 값 받아옴
-                            userList.add(usernick); // 접속 유저 리스트에 추가
+                                getUserInRoom(roomId); // 입장 시 그 방 내의 유저 값 받아옴
+                                userList.add(usernick); // 접속 유저 리스트에 추가
 
-                            UserOosInfo uoi= new UserOosInfo(usernick, oos);
-                            clientMap.put(usernick, uoi); //해쉬맵에 키를 name으로 출력스트림 객체를 저장.
+                                UserOosInfo uoi = new UserOosInfo(usernick, oos);
+                                clientMap.put(usernick, uoi); //해쉬맵에 키를 name으로 출력스트림 객체를 저장.
 
-                            sendAllEntryMsg(roomId, usernick, 0);
-                            toServer(usernick, roomId, 0);
+                                sendAllEntryMsg(roomId, usernick, 0);
+                                toServer(usernick, roomId, 0);
 
-                            entrance = true; // 접속 상태 true
+                                entrance = true; // 접속 상태 true
 
-                            //System.out.println("총 접속자 수 : " + clientMap.size() );
+                                //System.out.println("총 접속자 수 : " + clientMap.size() );
+                            }
 
                             break;
 
@@ -199,6 +206,10 @@ public class TCPServer {
                             break;
                     }
                 }//while()---------
+
+                if (!entrance) {
+                    sendAllAckMsg(roomId, usernick);
+                }
             } catch (SocketException e) {
                 System.out.println(e.getMessage());
             } catch (IOException e) {
@@ -217,10 +228,10 @@ public class TCPServer {
             while (it.hasNext()) {
                 try {
                     UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
-                    for(int i = 0; i < userList.size(); i ++) {
-                        System.out.println("방 인원"+userList.get(i));
-                        if(uoi.getNick().equals(userList.get(i))){
-                            setPacketInfo(usernick, roomId);
+                    for (int i = 0; i < userList.size(); i++) {
+                        System.out.println("방 인원" + userList.get(i));
+                        if (uoi.getNick().equals(userList.get(i))) {
+                            dataLength = packetSetting.setLength(usernick, roomId);
                             EntryPacket entryPacket = new EntryPacket(roomId, usernick, dataLength, kinds);
                             ObjectOutputStream oos = uoi.getOos();
                             //ObjectOutputStream oos = (ObjectOutputStream) clientMap.get(it.next());
@@ -243,16 +254,16 @@ public class TCPServer {
             while (it.hasNext()) {
                 try {
                     UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
-                    for(int i = 0; i < userList.size(); i ++) {
-                        System.out.println("방 인원"+userList.get(i));
-                        if(uoi.getNick().equals(userList.get(i))){
-                            setPacketInfo(usernick, chat);
+                    for (int i = 0; i < userList.size(); i++) {
+                        System.out.println("방 인원" + userList.get(i));
+                        if (uoi.getNick().equals(userList.get(i))) {
+                            dataLength = packetSetting.setLength(usernick, chat);
                             ChatPacket chatPacket = new ChatPacket(roomId, usernick, chat, dataLength);
                             ObjectOutputStream oos = uoi.getOos();
                             oos.writeObject(chatPacket);
                             oos.flush();
 
-                            System.out.println("▶채팅 : "+roomId + "번방 : " + usernick + "=>" + chat);
+                            System.out.println("▶채팅 : " + roomId + "번방 : " + usernick + "=>" + chat);
                         }
                     }
                 } catch (Exception e) {
@@ -270,10 +281,10 @@ public class TCPServer {
             while (it.hasNext()) {
                 try {
                     UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
-                    for(int i = 0; i < userList.size(); i ++) {
-                        System.out.println("방 인원"+userList.get(i));
-                        if(uoi.getNick().equals(userList.get(i))){
-                            setPacketInfo(usernick, roomId, position);
+                    for (int i = 0; i < userList.size(); i++) {
+                        System.out.println("방 인원" + userList.get(i));
+                        if (uoi.getNick().equals(userList.get(i))) {
+                            dataLength = packetSetting.setLength(usernick, roomId, position);
                             PositionPacket positionPacket = new PositionPacket(roomId, usernick, dataLength, position);
                             ObjectOutputStream oos = uoi.getOos();
                             oos.writeObject(positionPacket);
@@ -295,10 +306,10 @@ public class TCPServer {
             while (it.hasNext()) {
                 try {
                     UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
-                    for(int i = 0; i < userList.size(); i ++) {
-                        System.out.println("방 인원"+userList.get(i));
-                        if(uoi.getNick().equals(userList.get(i))){
-                            setPacketInfo(usernick, roomId);
+                    for (int i = 0; i < userList.size(); i++) {
+                        System.out.println("방 인원" + userList.get(i));
+                        if (uoi.getNick().equals(userList.get(i))) {
+                            dataLength = packetSetting.setLength(usernick, roomId);
                             GameReadyPacket gameReadyPacket = new GameReadyPacket(roomId, usernick, dataLength, kinds);
                             ObjectOutputStream oos = uoi.getOos();
                             oos.writeObject(gameReadyPacket);
@@ -320,10 +331,10 @@ public class TCPServer {
             while (it.hasNext()) {
                 try {
                     UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
-                    for(int i = 0; i < userList.size(); i ++) {
-                        System.out.println("방 인원"+userList.get(i));
-                        if(uoi.getNick().equals(userList.get(i))){
-                            setPacketInfo(usernick, roomId);
+                    for (int i = 0; i < userList.size(); i++) {
+                        System.out.println("방 인원" + userList.get(i));
+                        if (uoi.getNick().equals(userList.get(i))) {
+                            dataLength = packetSetting.setLength(usernick, roomId);
                             StartQueuePacket startQueuePacket = new StartQueuePacket(roomId, usernick, dataLength);
                             ObjectOutputStream oos = uoi.getOos();
                             oos.writeObject(startQueuePacket);
@@ -336,28 +347,26 @@ public class TCPServer {
             }
         }
 
-        // 채팅 시 Packet 설정
-        private void setPacketInfo(String usernick, String chat) {
-            String packet_Data = roomId + "|" + usernick + "|" + chat; // "룸id|유저닉네임|대화내용" 으로 패킷 설정
-            dataLength = packet_Data.length();
-        }
+        //접속된 모든 클라이언트들에게 게임 시작 메시지 전달
+        public void sendAllAckMsg(int roomId, String usernick) {
 
-        // 입장, 퇴장 시 Packet 설정
-        private void setPacketInfo(String usernick, int roomId) {
-            String packet_Data = roomId + "|" + usernick; // "룸id|유저닉네임" 으로 패킷 설정
-            dataLength = packet_Data.length();
-        }
+            //출력스트림을 순차적으로 얻어와서 해당 메시지를 출력한다.
+            Iterator it = clientMap.keySet().iterator();
 
-        // 채팅 시 Packet 설정
-        private void setPacketInfo(String usernick, int roomId,  int position) {
-            String packet_Data = roomId + "|" + usernick + "|" + position; // "룸id|유저닉네임|포지션" 으로 패킷 설정
-            dataLength = packet_Data.length();
-        }
-
-        // 채팅 시 Packet 설정
-        private void setPacketInfo(String[] usernick, int roomId) {
-            String packet_Data = roomId + "|" + usernick + "|"; // "룸id|게임시작유저 닉네임" 으로 패킷 설정
-            dataLength = packet_Data.length();
+            while (it.hasNext()) {
+                try {
+                    UserOosInfo uoi = (UserOosInfo) clientMap.get(it.next());
+                    if (uoi.getNick().equals(usernick)) {
+                        dataLength = packetSetting.setLength(usernick, roomId);
+                        AckPacket ackPacket = new AckPacket(roomId, usernick, dataLength, 0);
+                        ObjectOutputStream oos = uoi.getOos();
+                        oos.writeObject(ackPacket);
+                        oos.flush();
+                    }
+                } catch (Exception e) {
+                    System.out.println("예외:" + e);
+                }
+            }
         }
 
         // 서버 DB 연동
@@ -395,14 +404,14 @@ public class TCPServer {
                     conn.setRequestProperty("content-type", "application/x-www-form-urlencoded");
 
                     StringBuffer buffer = new StringBuffer();
-                    if(requestCode==0 || requestCode==1){
+                    if (requestCode == 0 || requestCode == 1) {
                         buffer.append("nick").append("=").append(nick).append("&");
                         buffer.append("roomId").append("=").append(roomId);
-                    } else if(requestCode==3){
+                    } else if (requestCode == 3) {
                         buffer.append("nick").append("=").append(nick).append("&");
                         buffer.append("roomId").append("=").append(roomId).append("&");
                         buffer.append("position").append("=").append(position);
-                    } else if(requestCode==4 || requestCode==5){
+                    } else if (requestCode == 4 || requestCode == 5) {
                         buffer.append("nick").append("=").append(nick).append("&");
                         buffer.append("roomId").append("=").append(roomId);
                     }
@@ -424,7 +433,7 @@ public class TCPServer {
                     }
 
                     if (builder.toString().trim().equals("success")) {
-                        switch (requestCode){
+                        switch (requestCode) {
                             case 0:
                                 System.out.println("◎입장 알림 : " + roomId + "번방, " + usernick + "입장했습니다.");
                                 break;
@@ -441,8 +450,8 @@ public class TCPServer {
                                 System.out.println("◎게임 준비 해제 : " + roomId + "번방");
                                 break;
                         }
-                    } else if(builder.toString().trim().equals("failure")){
-                        switch (requestCode){
+                    } else if (builder.toString().trim().equals("failure")) {
+                        switch (requestCode) {
                             case 0:
                                 System.out.println("◎입장 오류 : " + roomId + "번방, " + usernick + " / 입장에 오류 생김. (서버 문제) 강제 퇴장 조치");
                                 toServer(usernick, roomId, 1);
@@ -527,12 +536,12 @@ public class TCPServer {
     }
 
     // 유저 접속 시 해당 유저의 OOS값을 저장해두어 소켓 연결 유지
-    public class UserOosInfo{
+    public class UserOosInfo {
 
         String nick;
         ObjectOutputStream oos;
 
-        UserOosInfo(String _nick, ObjectOutputStream _oos){
+        UserOosInfo(String _nick, ObjectOutputStream _oos) {
             this.nick = _nick;
             this.oos = _oos;
         }

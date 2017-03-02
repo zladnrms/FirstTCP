@@ -1,15 +1,14 @@
 package zladnrms.defytech.firsttcp;
 
 import android.content.Context;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.Canvas;
-import android.graphics.Color;
 import android.util.AttributeSet;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 
-import zladnrms.defytech.firsttcp.Client.PositionRect;
+import java.util.ArrayList;
+
+import zladnrms.defytech.firsttcp.Client.PosClass;
 
 /**
  * Created by Administrator on 2016-12-01.
@@ -17,14 +16,14 @@ import zladnrms.defytech.firsttcp.Client.PositionRect;
 
 public class GameSurfaceView extends SurfaceView implements SurfaceHolder.Callback {
 
-    private GameThread_backup gameThread;
+    private GameThread gameThread;
 
     public GameSurfaceView(Context context) {
         super(context);
 
         System.out.println("1번째");
         getHolder().addCallback(this);
-        gameThread = new GameThread_backup(getHolder(), this, context);
+        gameThread = new GameThread(getHolder(), this, context);
     }
 
     public GameSurfaceView(Context context, AttributeSet attrs) {
@@ -32,7 +31,7 @@ public class GameSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 
         System.out.println("2번째");
         getHolder().addCallback(this);
-        gameThread = new GameThread_backup(getHolder(), this, context);
+        gameThread = new GameThread(getHolder(), this, context);
     }
 
     public GameSurfaceView(Context context, AttributeSet attrs, int defStyle) {
@@ -40,11 +39,11 @@ public class GameSurfaceView extends SurfaceView implements SurfaceHolder.Callba
 
         System.out.println("3번째");
         getHolder().addCallback(this);
-        gameThread = new GameThread_backup(getHolder(), this, context);
+        gameThread = new GameThread(getHolder(), this, context);
     }
 
-    public void setPositionRect(PositionRect positionRect){
-        gameThread.setPositionRect(positionRect);
+    public void setPositionList(ArrayList<PosClass> posList){
+        gameThread.setPositionList(posList);
     }
 
     public void clickPosition (int _pos) {
